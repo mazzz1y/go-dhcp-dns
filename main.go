@@ -35,9 +35,7 @@ func main() {
 	cache := newDNSCache()
 	handler := newHandler(cache, dnsServer)
 
-	dns.HandleFunc(".", handler.handleDNS)
-
-	server := &dns.Server{Addr: listenAddr}
+	server := &dns.Server{Addr: listenAddr, Net: "udp", Handler: dns.HandlerFunc(handler.handleDNS)}
 	log.Printf("starting DNS forwarder on %s using interface %s", listenAddr, networkInterface)
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("failed to start server: %v", err)
