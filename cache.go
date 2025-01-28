@@ -7,23 +7,21 @@ import (
 )
 
 type dnsCache struct {
-	cache map[string]*dns.Msg
-	times map[string]time.Time
 	mu    sync.RWMutex
+	items map[string]*cacheEntry
+}
+
+type cacheEntry struct {
+	msg       *dns.Msg
+	expiresAt time.Time
 }
 
 func newDNSCache() *dnsCache {
 	cache := &dnsCache{
-		cache: make(map[string]*dns.Msg),
-		times: make(map[string]time.Time),
+		items: make(map[string]*cacheEntry),
 	}
-	go func() {
-		ticker := time.NewTicker(cleanupInterval)
-		for range ticker.C {
-			cache.cleanup()
-		}
-	}()
 
+	go cache.startCleanup(cacheCleanupInterval)
 	return cache
 }
 
@@ -31,22 +29,72 @@ func (c *dnsCache) get(key string) (*dns.Msg, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	if msg, exists := c.cache[key]; exists {
-		if time.Since(c.times[key]) < cacheTime {
-			return msg.Copy(), true
-		}
-		delete(c.cache, key)
-		delete(c.times, key)
+	entry, exists := c.items[key]
+	if !exists {
+		return nil, false
 	}
-	return nil, false
+
+	now := time.Now()
+	if now.After(entry.expiresAt) {
+		go c.delete(key) // Cleanup expired entry
+		return nil, false
+	}
+
+	// Calculate remaining TTL in seconds
+	remainingTTL := uint32(entry.expiresAt.Sub(now).Seconds())
+	if remainingTTL < 1 {
+		go c.delete(key)
+		return nil, false
+	}
+
+	resp := entry.msg.Copy()
+
+	for _, rr := range resp.Answer {
+		rr.Header().Ttl = remainingTTL
+	}
+	for _, rr := range resp.Ns {
+		rr.Header().Ttl = remainingTTL
+	}
+	for _, rr := range resp.Extra {
+		// Skip OPT records as they don't have a meaningful TTL
+		if _, isOPT := rr.(*dns.OPT); !isOPT {
+			rr.Header().Ttl = remainingTTL
+		}
+	}
+
+	return resp, true
 }
 
 func (c *dnsCache) set(key string, msg *dns.Msg) {
+	if msg == nil {
+		return
+	}
+
+	ttl := calculateTTL(msg)
+	if ttl == 0 {
+		return
+	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.cache[key] = msg.Copy()
-	c.times[key] = time.Now()
+	c.items[key] = &cacheEntry{
+		msg:       msg.Copy(),
+		expiresAt: time.Now().Add(ttl),
+	}
+}
+
+func (c *dnsCache) delete(key string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.items, key)
+}
+
+func (c *dnsCache) startCleanup(interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	for range ticker.C {
+		c.cleanup()
+	}
 }
 
 func (c *dnsCache) cleanup() {
@@ -54,10 +102,30 @@ func (c *dnsCache) cleanup() {
 	defer c.mu.Unlock()
 
 	now := time.Now()
-	for key, timestamp := range c.times {
-		if now.Sub(timestamp) >= cacheTime {
-			delete(c.cache, key)
-			delete(c.times, key)
+	for key, entry := range c.items {
+		if now.After(entry.expiresAt) {
+			delete(c.items, key)
 		}
 	}
+}
+
+func calculateTTL(msg *dns.Msg) time.Duration {
+	if msg.Rcode == dns.RcodeNameError {
+		for _, rr := range msg.Ns {
+			if soa, ok := rr.(*dns.SOA); ok {
+				return time.Duration(soa.Minttl) * time.Second
+			}
+		}
+	}
+
+	sections := [][]dns.RR{msg.Answer, msg.Ns, msg.Extra}
+	for _, section := range sections {
+		for _, rr := range section {
+			if ttl := rr.Header().Ttl; ttl > 0 {
+				return time.Duration(ttl) * time.Second
+			}
+		}
+	}
+
+	return 0
 }

@@ -12,12 +12,11 @@ const (
 	listenAddr  = ":53533"
 	networkType = "udp"
 
-	fallbackDNS  = "8.8.8.8"
-	maxRetries   = 3
-	queryTimeout = 1 * time.Second
+	fallbackDNS = "8.8.8.8"
 
-	cacheTime       = 1 * time.Minute
-	cleanupInterval = 1 * time.Minute
+	maxRetries           = 3
+	queryTimeout         = 5 * time.Second
+	cacheCleanupInterval = 1 * time.Hour
 
 	networkInterface = "en0"
 )
@@ -53,7 +52,6 @@ func dnsHandler(w dns.ResponseWriter, r *dns.Msg, cache *dnsCache, dnsServer *dn
 	}
 
 	cacheKey := r.Question[0].String()
-
 	if cached, exists := cache.get(cacheKey); exists {
 		cached.Id = r.Id
 		w.WriteMsg(cached)
@@ -82,7 +80,7 @@ func dnsHandler(w dns.ResponseWriter, r *dns.Msg, cache *dnsCache, dnsServer *dn
 			w.WriteMsg(resp)
 			return
 		}
-		time.Sleep(time.Duration(1) * time.Second)
+		time.Sleep(time.Duration(500) * time.Millisecond)
 	}
 
 	m := new(dns.Msg)
