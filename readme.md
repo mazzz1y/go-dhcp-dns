@@ -19,3 +19,24 @@ go-dhcp-dns provides a lightweight DNS proxy that:
 2. Proxies DNS queries to these DHCP-provided servers
 3. Implements proper DNS caching with TTL support
 4. Allows selective domain resolution through DHCP DNS servers while maintaining VPN connectivity
+
+
+```mermaid
+graph TD
+    Device[MacOS Device]
+
+    subgraph dns-resolution[DNS Resolution]
+        local-dns[Local Resolver<br/>127.0.0.1:53]
+        go-dhcp-dns[go-dhcp-dns<br/>127.0.0.1:53533]
+    end
+
+    subgraph network
+        vpn[VPN DNS Servers]
+        dhcp[DHCP DNS Servers]
+    end
+
+    Device -->|All DNS queries| local-dns
+    local-dns -->|Most domains| vpn
+    local-dns -->|"captive.apple.com,<br/>portal.example.com"| go-dhcp-dns
+    go-dhcp-dns --> dhcp
+```
