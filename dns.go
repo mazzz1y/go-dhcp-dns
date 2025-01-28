@@ -55,7 +55,7 @@ func isValidIP(ip string) bool {
 }
 
 func getDNSServers() ([]string, error) {
-	if !strings.HasPrefix(runtime.GOOS, "darwin/") {
+	if runtime.GOOS != "darwin" {
 		return []string{}, fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}
 

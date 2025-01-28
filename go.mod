@@ -1,4 +1,4 @@
-module dhcp-dns
+module go-dhcp-dns
 
 go 1.23.5
 
