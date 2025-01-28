@@ -21,7 +21,7 @@ func newDNSCache() *dnsCache {
 		items: make(map[string]*cacheEntry),
 	}
 
-	go cache.startCleanup(cacheCleanupInterval)
+	go cache.startCleanup(time.Duration(1) * time.Hour)
 	return cache
 }
 

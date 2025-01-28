@@ -65,6 +65,10 @@ func getDNSServers() ([]string, error) {
 		return nil, fmt.Errorf("failed to execute ipconfig: %v", err)
 	}
 
+	return parseDNSServers(output)
+}
+
+func parseDNSServers(output []byte) ([]string, error) {
 	scanner := bufio.NewScanner(bytes.NewReader(output))
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -83,7 +87,7 @@ func getDNSServers() ([]string, error) {
 				if isValidIP(ip) {
 					validIPs = append(validIPs, ip)
 				} else {
-					log.Printf("Invalid IP address found: %s", ip)
+					log.Printf("invalid IP address found: %s", ip)
 				}
 			}
 

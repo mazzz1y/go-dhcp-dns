@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"math/rand"
 	"time"
@@ -8,19 +9,25 @@ import (
 	"github.com/miekg/dns"
 )
 
-const (
-	listenAddr  = ":53533"
-	networkType = "udp"
-	fallbackDNS = "8.8.8.8"
-
-	maxRetries           = 3
-	queryTimeout         = 5 * time.Second
-	cacheCleanupInterval = 1 * time.Hour
-
-	networkInterface = "en0"
+var (
+	listenAddr       string
+	fallbackDNS      string
+	networkInterface string
+	maxRetries       int
+	queryTimeout     time.Duration
 )
 
+func init() {
+	flag.StringVar(&listenAddr, "listen", "127.0.0.1:53533", "address to listen on")
+	flag.StringVar(&fallbackDNS, "fallback", "8.8.8.8", "fallback DNS server")
+	flag.StringVar(&networkInterface, "interface", "en0", "network interface for outgoing requests")
+	flag.IntVar(&maxRetries, "retries", 3, "maximum number of query attempts")
+	flag.DurationVar(&queryTimeout, "timeout", 5*time.Second, "query timeout duration")
+}
+
 func main() {
+	flag.Parse()
+
 	rand.NewSource(time.Now().UnixNano())
 
 	dnsServer := newDNSServer()
@@ -30,11 +37,7 @@ func main() {
 
 	dns.HandleFunc(".", handler.handleDNS)
 
-	server := &dns.Server{
-		Addr: listenAddr,
-		Net:  networkType,
-	}
-
+	server := &dns.Server{Addr: listenAddr}
 	log.Printf("starting DNS forwarder on %s using interface %s", listenAddr, networkInterface)
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("failed to start server: %v", err)
