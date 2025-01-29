@@ -1,0 +1,25 @@
+version: 2
+
+env:
+  - CGO_ENABLED=0
+
+builds:
+  - binary: go-dhcp-dns
+    main: ./cmd/go-dhcp-dns
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
+brews:
+  - repository:
+      owner: mazzz1y
+      name: tap
+    name: go-dhcp-dns
+    homepage: "https://github.com/mazzz1y/go-dhcp-dns"
+    description: "Make DNS go through DHCP"
+    service: |
+      run [opt_bin/"go-dhcp-dns"]
+      keep_alive true
