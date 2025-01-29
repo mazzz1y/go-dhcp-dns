@@ -1,4 +1,4 @@
-package main
+package cache
 
 import (
 	"github.com/miekg/dns"
@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-type dnsCache struct {
+type DnsCache struct {
 	mu    sync.RWMutex
 	items map[string]*cacheEntry
 }
@@ -16,8 +16,8 @@ type cacheEntry struct {
 	expiresAt time.Time
 }
 
-func newDNSCache() *dnsCache {
-	cache := &dnsCache{
+func NewDNSCache() *DnsCache {
+	cache := &DnsCache{
 		items: make(map[string]*cacheEntry),
 	}
 
@@ -25,7 +25,7 @@ func newDNSCache() *dnsCache {
 	return cache
 }
 
-func (c *dnsCache) get(key string) (*dns.Msg, bool) {
+func (c *DnsCache) Get(key string) (*dns.Msg, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -65,7 +65,7 @@ func (c *dnsCache) get(key string) (*dns.Msg, bool) {
 	return resp, true
 }
 
-func (c *dnsCache) set(key string, msg *dns.Msg) {
+func (c *DnsCache) Set(key string, msg *dns.Msg) {
 	if msg == nil {
 		return
 	}
@@ -84,27 +84,23 @@ func (c *dnsCache) set(key string, msg *dns.Msg) {
 	}
 }
 
-func (c *dnsCache) delete(key string) {
+func (c *DnsCache) delete(key string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	delete(c.items, key)
 }
 
-func (c *dnsCache) startCleanup(interval time.Duration) {
+func (c *DnsCache) startCleanup(interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	for range ticker.C {
-		c.cleanup()
-	}
-}
+		c.mu.Lock()
+		defer c.mu.Unlock()
 
-func (c *dnsCache) cleanup() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	now := time.Now()
-	for key, entry := range c.items {
-		if now.After(entry.expiresAt) {
-			delete(c.items, key)
+		now := time.Now()
+		for key, entry := range c.items {
+			if now.After(entry.expiresAt) {
+				delete(c.items, key)
+			}
 		}
 	}
 }
