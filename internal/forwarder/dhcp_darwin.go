@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"log"
 	"os/exec"
 	"strings"
 )
@@ -28,18 +27,15 @@ func parse(output []byte) ([]string, error) {
 
 		start := strings.Index(line, "{")
 		end := strings.Index(line, "}")
-		if start == -1 || end == -1 ё {
+		if start == -1 || end == -1 {
 			return nil, fmt.Errorf("invalid dns server format")
 		}
 
 		validIPs := make([]string, 0)
-		ips := strings.Split(line[start+1:end], ",")
-		for _, ip := range ips {
+		for _, ip := range strings.Split(line[start+1:end], ",") {
 			ip = strings.TrimSpace(ip)
 			if isValidIP(ip) {
 				validIPs = append(validIPs, ip)
-			} else {
-				log.Printf("skipping invalid ip: %s", ip)
 			}
 		}
 

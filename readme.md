@@ -34,7 +34,7 @@ graph TD
         go-dhcp-dns[go-dhcp-dns<br/>127.0.0.1:53533]
     end
 
-    subgraph network
+    subgraph network[Network]
         vpn[VPN DNS Servers]
         dhcp[DHCP DNS Servers]
     end

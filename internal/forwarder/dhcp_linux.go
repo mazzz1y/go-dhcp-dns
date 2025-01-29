@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 )
@@ -38,8 +37,6 @@ func parse(content []byte) ([]string, error) {
 			ip := fields[1]
 			if isValidIP(ip) {
 				validIPs = append(validIPs, ip)
-			} else {
-				log.Printf("skipping invalid ip from resolv.conf: %s", ip)
 			}
 		}
 	}
