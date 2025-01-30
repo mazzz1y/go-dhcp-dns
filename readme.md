@@ -25,6 +25,15 @@ Getting DNS servers was done in a "hacky" way:
 * In the Linux application by looking at `/run/NetworkManager/no-stub-resolv.conf`, which is NetworkManager's resolv.conf path for "real" network resolver.
 * In the MacOS application by parsing the ipconfig output . It's a dirty hack, but it works quickly and efficiently, so be careful.
 
+## Installation
+
+### MacOS
+```bash
+brew tap mazzz1y/tap
+brew install go-dhcp-dns
+brew services start go-dhcp-dns
+```
+---
 ```mermaid
 graph TD
     Device[Device]
