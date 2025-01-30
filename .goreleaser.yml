@@ -23,3 +23,4 @@ brews:
     service: |
       run [opt_bin/"go-dhcp-dns"]
       keep_alive true
+      error_log_path "#{var}/log/go-dhcp-dns.err.log"
