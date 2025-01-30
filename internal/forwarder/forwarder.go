@@ -28,7 +28,6 @@ func (d *Forwarder) Query(r *dns.Msg) (*dns.Msg, error) {
 			return nil, fmt.Errorf("error getting dns servers: %v", err)
 		}
 
-		upstream := d.getRandomServer()
 		localAddr, err := d.getInterfaceIP()
 		if err != nil {
 			return nil, fmt.Errorf("failing to get interface ip: %v", err)
@@ -42,13 +41,13 @@ func (d *Forwarder) Query(r *dns.Msg) (*dns.Msg, error) {
 			},
 		}
 
-		resp, _, err := c.Exchange(r, fmt.Sprintf("%s:53", upstream))
+		resp, _, err := c.Exchange(r, fmt.Sprintf("%s:53", d.getRandomServer()))
 		if err == nil && resp != nil {
 			return resp, nil
 		}
 
 		log.Printf("attempt %d failed: %v", i+1, err)
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(300 * time.Millisecond)
 	}
 
 	return nil, fmt.Errorf("dns query failed after %d attempts", d.maxRetries)
@@ -86,13 +85,25 @@ func (d *Forwarder) getInterfaceIP() (net.IP, error) {
 		return nil, err
 	}
 
+	var ipv6Addr net.IP
 	for _, addr := range addrs {
 		if ipnet, ok := addr.(*net.IPNet); ok {
-			if ipnet.IP.To4() != nil {
-				return ipnet.IP, nil
+			// Prefer IPv4
+			if ipv4 := ipnet.IP.To4(); ipv4 != nil {
+				return ipv4, nil
+			}
+			// Store first valid IPv6 as fallback
+			if ipv6Addr == nil && !ipnet.IP.IsLinkLocalUnicast() {
+				if ipv6 := ipnet.IP.To16(); ipv6 != nil {
+					ipv6Addr = ipv6
+				}
 			}
 		}
 	}
 
-	return nil, fmt.Errorf("no IPv4 address found for interface %s", d.ifaceName)
+	if ipv6Addr != nil {
+		return ipv6Addr, nil
+	}
+
+	return nil, fmt.Errorf("no IP address found for interface %s", d.ifaceName)
 }
