@@ -7,8 +7,9 @@ import (
 )
 
 type DnsCache struct {
-	mu    sync.RWMutex
-	items map[string]*cacheEntry
+	mu              sync.RWMutex
+	items           map[string]*cacheEntry
+	cleanupInterval time.Duration
 }
 
 type cacheEntry struct {
@@ -18,10 +19,11 @@ type cacheEntry struct {
 
 func NewDNSCache() *DnsCache {
 	cache := &DnsCache{
-		items: make(map[string]*cacheEntry),
+		items:           make(map[string]*cacheEntry),
+		cleanupInterval: time.Hour,
 	}
 
-	go cache.startCleanup(time.Duration(1) * time.Hour)
+	go cache.cleanupTicker()
 	return cache
 }
 
@@ -90,17 +92,21 @@ func (c *DnsCache) delete(key string) {
 	delete(c.items, key)
 }
 
-func (c *DnsCache) startCleanup(interval time.Duration) {
-	ticker := time.NewTicker(interval)
+func (c *DnsCache) cleanupTicker() {
+	ticker := time.NewTicker(c.cleanupInterval)
 	for range ticker.C {
-		c.mu.Lock()
-		defer c.mu.Unlock()
+		c.cleanup()
+	}
+}
 
-		now := time.Now()
-		for key, entry := range c.items {
-			if now.After(entry.expiresAt) {
-				delete(c.items, key)
-			}
+func (c *DnsCache) cleanup() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	now := time.Now()
+	for key, entry := range c.items {
+		if now.After(entry.expiresAt) {
+			delete(c.items, key)
 		}
 	}
 }
